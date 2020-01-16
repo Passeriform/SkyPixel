@@ -1,5 +1,6 @@
-import cv2
 import argparse
+
+import cv2
 import numpy as np
 
 
@@ -10,18 +11,21 @@ def toSkeleton(image):
     _, image = cv2.threshold(image, 127, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
 
     kernel = cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3))
-    done = False
+    # done = False
 
-    while not done:
-        eroded = cv2.erode(image, kernel)
-        dilated = cv2.dilate(eroded, kernel)
-        net = cv2.subtract(image, dilated)
-        skeleton = cv2.bitwise_or(skeleton, net)
-        image = eroded.copy()
+    skeleton = cv2.morphologyEx(image, cv2.MORPH_OPEN, kernel, iterations=20)
+    skeleton = cv2.morphologyEx(skeleton, cv2.MORPH_CLOSE, kernel, iterations=20)
 
-        zeroes = size - cv2.countNonZero(image)
-        if zeroes == size:
-            done = True
+    # while not done:
+    #     eroded = cv2.erode(image, kernel)
+    #     dilated = cv2.dilate(eroded, kernel)
+    #     net = cv2.subtract(image, dilated)
+    #     skeleton = cv2.bitwise_or(skeleton, net)
+    #     image = eroded.copy()
+    #
+    #     zeroes = size - cv2.countNonZero(image)
+    #     if zeroes == size:
+    #         done = True
 
     if debug == 1:
         cv2.namedWindow("Skeleton image", cv2.WINDOW_KEEPRATIO)
@@ -49,18 +53,18 @@ def toDefog(image):
 
 
 def toGrayscale(image):
-
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(gray, (3, 3), 0)
+    blurred = cv2.bilateralFilter(image, 20, 120, 1)
+    # blurred = cv2.GaussianBlur(image, (3, 3), 0)
+    gray = cv2.cvtColor(blurred, cv2.COLOR_BGR2GRAY)
 
     if debug==1:
         cv2.namedWindow("Grayscale image", cv2.WINDOW_KEEPRATIO)
-        cv2.imshow("Grayscale image", blurred)
+        cv2.imshow("Grayscale image", gray)
         x = cv2.waitKey(0)
         if x == 27:
             cv2.destroyWindow('Grayscale image')
 
-    return blurred
+    return gray
 
 
 def toCanny(image, sigma):
@@ -119,10 +123,12 @@ def genHoughLines(edges):
 
 def createMask(image):
     grayscale_image = toGrayscale(img)
-    # skeleton_image = toSkeleton(grayscale_image)
-    defog_image = toDefog(grayscale_image)
-    canny_edges = toCanny(defog_image, args.sigma)
+    skeleton_image = toSkeleton(grayscale_image)
+    # defog_image = toDefog(grayscale_image)
+    canny_edges = toCanny(skeleton_image, args.sigma)
     hough_lines = toHoughImage(img, canny_edges)
+
+    return hough_lines
 
 
 if __name__ == "__main__":
@@ -144,7 +150,7 @@ if __name__ == "__main__":
     cv2.namedWindow("original", cv2.WINDOW_NORMAL)
     cv2.imshow("original", img)
 
-    createMask(img)
+    mask = createMask(img)
 
     if not args.destination:
         out_path = '{}_mask.png'.format(args.origin[args.origin.rfind('/')+1:args.origin.find('.')])

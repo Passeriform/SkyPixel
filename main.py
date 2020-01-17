@@ -134,19 +134,57 @@ def genHoughLines(edges):
     lines = cv2.HoughLinesP(edges, 1, np.pi / 180, 1, minLineLength=1, maxLineGap=10)
 
     if debug==1:
-        print(lines)
+        # print(lines)
+        pass
 
     return lines
 
+def findBigContours(image,draw_contours):
+	horizon_line=[]
+	selected_contours = []
+	height, width, _ = image.shape
+
+	cntsSorted = sorted(draw_contours, key=lambda x: cv2.contourArea(x), reverse=True)
+
+
+	for ind, c in enumerate(cntsSorted):
+
+		extLeft = tuple(c[c[:, :, 0].argmin()][0])
+		extRight = tuple(c[c[:, :, 0].argmax()][0])
+		extTop = tuple(c[c[:, :, 1].argmin()][0])
+		extBot = tuple(c[c[:, :, 1].argmax()][0])
+		
+		if extLeft[0]==0:
+			if extRight[0]==width-1 or extTop[1]==0 or extBot[1]==height-1:
+				horizon_line.append([extLeft,extRight,extTop,extBot])
+				selected_contours.append(c)
+
+		elif extBot[1]==height-1:
+			if extRight[0]==width-1 or extTop[1]==0:
+				horizon_line.append([extLeft,extRight,extTop,extBot])
+				selected_contours.append(c)
+
+		elif extTop[1]==0 and extRight[0]==width-1:
+			horizon_line.append([extLeft,extRight,extTop,extBot])
+			selected_contours.append(c)
+
+	if debug == 1:
+		for c in selected_contours:
+			cv2.drawContours(image, [c], -1, (255, 0, 0), 2)
+		
+		cv2.imshow("Big C Image", image)
+		cv2.waitKey(0)
+
+	return horizon_line
 
 def createMask(image, args):
-    combined_image = toChannels(img)
-    skeleton_image = toSkeleton(combined_image, args.erosion)
-    canny_edges = toCanny(skeleton_image, args.sigma)
-    draw_contours = toContour(img, canny_edges)
-    hough_lines = toHoughImage(img, canny_edges)
-
-    return hough_lines
+	combined_image = toChannels(img)
+	skeleton_image = toSkeleton(combined_image, args.erosion)
+	canny_edges = toCanny(skeleton_image, args.sigma)
+	draw_contours = toContour(img, canny_edges)
+	contour=findBigContours(img,draw_contours)
+	hough_lines = toHoughImage(img, canny_edges)
+	return hough_lines
 
 
 if __name__ == "__main__":
@@ -176,4 +214,4 @@ if __name__ == "__main__":
     else:
         out_path = args.destination
 
-    cv2.imwrite(out_path, mask)
+    #cv2.imwrite(out_path, mask)

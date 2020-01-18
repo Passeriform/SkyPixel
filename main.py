@@ -42,6 +42,7 @@ def toSkeleton(image, erosion):
     if debug == 1:
         cv2.namedWindow("Skeleton image", cv2.WINDOW_KEEPRATIO)
         cv2.imshow("Skeleton image", skeleton)
+        #cv2.imwrite('/home/deepansh/Desktop/Mask.jpg',skeleton)
         x = cv2.waitKey(0)
         if x == 27:
             cv2.destroyWindow('Skeleton image')
@@ -153,7 +154,8 @@ def findBigContours(image,draw_contours):
 		extRight = tuple(c[c[:, :, 0].argmax()][0])
 		extTop = tuple(c[c[:, :, 1].argmin()][0])
 		extBot = tuple(c[c[:, :, 1].argmax()][0])
-		
+		#if extTop[1]<height/2:
+
 		if extLeft[0]==0:
 			if extRight[0]==width-1 or extTop[1]==0 or extBot[1]==height-1:
 				horizon_line.append([extLeft,extRight,extTop,extBot])
@@ -171,19 +173,41 @@ def findBigContours(image,draw_contours):
 	if debug == 1:
 		for c in selected_contours:
 			cv2.drawContours(image, [c], -1, (255, 0, 0), 2)
+			#cv2.imwrite('/home/deepansh/Desktop/Contour.jpg',image)
 		
 		cv2.imshow("Big C Image", image)
 		cv2.waitKey(0)
 
-	return horizon_line
+	return selected_contours
+
+def findElevation(image,contours):
+	min=tuple(contours[0][contours[0][:, :, 1].argmax()][0])
+	for c in contours:
+		m=tuple(c[c[:, :, 1].argmax()][0])
+		if m<min:
+			min=m
+	extBot=min
+	height,width,_=image.shape
+	elevation=(extBot[1]/height)*120
+	#print(extBot)
+	#print(height)
+	print(elevation)
+	if elevation <= 24:
+		print("Good")
+	elif elevation > 96:
+		print("Bad")
+	else:
+		print("Mediocre")
+	return elevation
 
 def createMask(image, args):
 	combined_image = toChannels(img)
 	skeleton_image = toSkeleton(combined_image, args.erosion)
 	canny_edges = toCanny(skeleton_image, args.sigma)
 	draw_contours = toContour(img, canny_edges)
-	contour=findBigContours(img,draw_contours)
+	contours=findBigContours(img,draw_contours)
 	hough_lines = toHoughImage(img, canny_edges)
+	elevation=findElevation(image,contours)
 	return hough_lines
 
 
@@ -206,6 +230,7 @@ if __name__ == "__main__":
 
     cv2.namedWindow("original", cv2.WINDOW_NORMAL)
     cv2.imshow("original", img)
+    #cv2.imwrite('/home/deepansh/Desktop/Original.jpg',img)
 
     mask = createMask(img, args)
 

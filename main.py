@@ -3,7 +3,6 @@ import argparse
 import cv2
 import numpy as np
 
-
 def toSkeleton(image, erosion):
     # Params:
     thresh_val = 127
@@ -39,7 +38,7 @@ def toSkeleton(image, erosion):
     #     if zeroes == size:
     #         done = True
 
-    if debug == 1:
+    if args.debug == 1:
         cv2.namedWindow("Skeleton image", cv2.WINDOW_KEEPRATIO)
         cv2.imshow("Skeleton image", skeleton)
         x = cv2.waitKey(0)
@@ -55,7 +54,7 @@ def toChannels(image):
         channel_img = cv2.bilateralFilter(channel, 20, 120, 1)
         # channel_img = cv2.GaussianBlur(channel, (3, 3), 0)
 
-        if debug == 1:
+        if args.debug == 1:
             cv2.namedWindow("Channel image", cv2.WINDOW_KEEPRATIO)
             cv2.imshow("Channel image", channel_img)
             x = cv2.waitKey(0)
@@ -74,7 +73,7 @@ def toCanny(image, sigma):
     upper = int(min(255, (1.0 + sigma) * median))
     canny_edges = cv2.Canny(image, lower, upper)
 
-    if debug==1:
+    if args.debug==1:
         cv2.namedWindow("Canny Edge Detection", cv2.WINDOW_NORMAL)
         cv2.imshow("Canny Edge Detection", canny_edges)
         x = cv2.waitKey(0)
@@ -87,7 +86,7 @@ def toCanny(image, sigma):
 def toContour(image, edges):
     contours, hierarchy = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-    if debug == 1:
+    if args.debug == 1:
         for i in range(len(contours)):
             cv2.namedWindow("Contour Lines", cv2.WINDOW_NORMAL)
 
@@ -105,7 +104,7 @@ def toContour(image, edges):
 def toHoughImage(image, edges):
     hough_lines = genHoughLines(edges)
 
-    if debug==1:
+    if args.debug==1:
         cv2.namedWindow("Hough Lines", cv2.WINDOW_NORMAL)
 
         # lines_image = np.zeros(image.shape, np.uint8)
@@ -133,58 +132,60 @@ def toHoughImage(image, edges):
 def genHoughLines(edges):
     lines = cv2.HoughLinesP(edges, 1, np.pi / 180, 1, minLineLength=1, maxLineGap=10)
 
-    if debug==1:
+    if args.debug==1:
         # print(lines)
         pass
 
     return lines
 
+
 def findBigContours(image,draw_contours):
-	horizon_line=[]
-	selected_contours = []
-	height, width, _ = image.shape
+    horizon_line=[]
+    selected_contours = []
+    height, width, _ = image.shape
 
-	cntsSorted = sorted(draw_contours, key=lambda x: cv2.contourArea(x), reverse=True)
+    cntsSorted = sorted(draw_contours, key=lambda x: cv2.contourArea(x), reverse=True)
 
 
-	for ind, c in enumerate(cntsSorted):
+    for ind, c in enumerate(cntsSorted):
 
-		extLeft = tuple(c[c[:, :, 0].argmin()][0])
-		extRight = tuple(c[c[:, :, 0].argmax()][0])
-		extTop = tuple(c[c[:, :, 1].argmin()][0])
-		extBot = tuple(c[c[:, :, 1].argmax()][0])
-		
-		if extLeft[0]==0:
-			if extRight[0]==width-1 or extTop[1]==0 or extBot[1]==height-1:
-				horizon_line.append([extLeft,extRight,extTop,extBot])
-				selected_contours.append(c)
+        extLeft = tuple(c[c[:, :, 0].argmin()][0])
+        extRight = tuple(c[c[:, :, 0].argmax()][0])
+        extTop = tuple(c[c[:, :, 1].argmin()][0])
+        extBot = tuple(c[c[:, :, 1].argmax()][0])
 
-		elif extBot[1]==height-1:
-			if extRight[0]==width-1 or extTop[1]==0:
-				horizon_line.append([extLeft,extRight,extTop,extBot])
-				selected_contours.append(c)
+        if extLeft[0]==0:
+            if extRight[0]==width-1 or extTop[1]==0 or extBot[1]==height-1:
+                horizon_line.append([extLeft,extRight,extTop,extBot])
+                selected_contours.append(c)
 
-		elif extTop[1]==0 and extRight[0]==width-1:
-			horizon_line.append([extLeft,extRight,extTop,extBot])
-			selected_contours.append(c)
+        elif extBot[1]==height-1:
+            if extRight[0]==width-1 or extTop[1]==0:
+                horizon_line.append([extLeft,extRight,extTop,extBot])
+                selected_contours.append(c)
 
-	if debug == 1:
-		for c in selected_contours:
-			cv2.drawContours(image, [c], -1, (255, 0, 0), 2)
-		
-		cv2.imshow("Big C Image", image)
-		cv2.waitKey(0)
+        elif extTop[1]==0 and extRight[0]==width-1:
+            horizon_line.append([extLeft,extRight,extTop,extBot])
+            selected_contours.append(c)
 
-	return horizon_line
+    if args.debug == 1:
+        for c in selected_contours:
+            cv2.drawContours(image, [c], -1, (255, 0, 0), 2)
+
+        cv2.imshow("Big C Image", image)
+        cv2.waitKey(0)
+
+    return horizon_line
+
 
 def createMask(image, args):
-	combined_image = toChannels(img)
-	skeleton_image = toSkeleton(combined_image, args.erosion)
-	canny_edges = toCanny(skeleton_image, args.sigma)
-	draw_contours = toContour(img, canny_edges)
-	contour=findBigContours(img,draw_contours)
-	hough_lines = toHoughImage(img, canny_edges)
-	return hough_lines
+    combined_image = toChannels(image)
+    skeleton_image = toSkeleton(combined_image, args.erosion)
+    canny_edges = toCanny(skeleton_image, args.sigma)
+    draw_contours = toContour(img, canny_edges)
+    contour=findBigContours(img,draw_contours)
+    hough_lines = toHoughImage(img, canny_edges)
+    return hough_lines
 
 
 if __name__ == "__main__":
@@ -197,10 +198,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     file = getattr(args, 'origin')
-    if args.debug:
-        debug = 1
-    else:
-        debug = 0
 
     img = cv2.imread(file)
 
